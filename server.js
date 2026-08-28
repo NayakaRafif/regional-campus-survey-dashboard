@@ -21,6 +21,16 @@ const loadTypeformConfig = () => {
     }
     const token = process.env.TYPEFORM_TOKEN || fileConfig.token || '';
     let forms = Array.isArray(fileConfig.forms) ? fileConfig.forms : [];
+    // Deployment-friendly: daftar form bisa lewat env TYPEFORM_FORMS (JSON array)
+    // sehingga token & daftar form tidak perlu di-commit ke repository.
+    if (process.env.TYPEFORM_FORMS) {
+        try {
+            forms = JSON.parse(process.env.TYPEFORM_FORMS);
+            if (!Array.isArray(forms)) throw new Error('bukan array');
+        } catch (e) {
+            console.warn('[Typeform] Gagal parse TYPEFORM_FORMS:', e.message);
+        }
+    }
     // Back-compat: legacy single-form config { formId: "..." }
     if (forms.length === 0 && fileConfig.formId) {
         forms = [{ formId: fileConfig.formId, campus: 'Regional Campus', category: '', label: 'Typeform' }];

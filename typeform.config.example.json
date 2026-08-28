@@ -1,0 +1,9 @@
+{
+    "token": "ISI_TYPEFORM_PERSONAL_ACCESS_TOKEN_DI_SINI",
+    "forms": [
+        { "formId": "VOxn5pJG", "campus": "Main Campus", "category": "living", "label": "Penginapan/Hotel - Main Campus" },
+        { "formId": "zrW3QAZe", "campus": "Main Campus", "category": "hospitality", "label": "Catering - Main Campus" },
+        { "formId": "A3uSZMxn", "campus": "Main Campus", "category": "learning", "label": "Pemateri - Main Campus" },
+        { "formId": "SEa9jM3F", "campus": "Umum", "category": "environment", "label": "Sarana Prasarana Pendidikan" }
+    ]
+}

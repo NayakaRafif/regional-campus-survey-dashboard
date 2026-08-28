@@ -1,0 +1,22 @@
+{
+  "name": "aplikasi-surveyor-regional-campus",
+  "version": "1.0.0",
+  "description": "Dashboard Survei Pengalaman Peserta Pelatihan BRI Regional Campus (Living, Learning, Hospitality, Environment)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bri",
+    "regional-campus",
+    "survey-dashboard",
+    "experience-survey"
+  ],
+  "author": "Regional Campus Surveyor",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "papaparse": "^5.7.0"
+  }
+}

@@ -1,0 +1,1896 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Surveyor Regional Campus - Real Data Experience</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS with custom configuration -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        bri: {
+                            blue: '#00529C',
+                            dark: '#002D62',
+                            light: '#0A6ED1',
+                            orange: '#F37021',
+                            amber: '#FF8A00',
+                            accent: '#EBF4FE'
+                        },
+                        status: {
+                            success: '#10B981',
+                            warning: '#F59E0B',
+                            danger: '#EF4444',
+                            info: '#3B82F6'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.25s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(4px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React 18 & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- PapaParse & SheetJS for robust Google Sheet / Typeform CSV & Excel imports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+    <!-- QRCode.js -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+    <style>
+        body {
+            background-color: #F4F7FB;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #1E293B;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            .print-full { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- SURVEY STRUCTURE & ITEM DEFINITIONS ---
+        const SURVEY_SCHEMA = {
+            living: {
+                id: 'living',
+                title: 'Living Experience',
+                desc: 'Fasilitas akomodasi, kebersihan, ketenangan dan kenyamanan asrama/hotel',
+                icon: '🏠',
+                color: '#00529C',
+                items: [
+                    { id: 'liv_kamar', label: 'Kelengkapan fasilitas dan kebersihan kamar', fullQuestion: 'Kelengkapan fasilitas dan kebersihan kamar.' },
+                    { id: 'liv_kamar_mandi', label: 'Kebersihan dan kelengkapan kamar mandi', fullQuestion: 'Kebersihan dan kelengkapan kamar mandi.' },
+                    { id: 'liv_ketenangan', label: 'Ketenangan lingkungan dan Keamanan hotel/asrama', fullQuestion: 'Ketenangan lingkungan dan keamanan hotel/asrama.' },
+                    { id: 'liv_housekeeping', label: 'Ketepatan Housekeeping dan laundry', fullQuestion: 'Ketepatan housekeeping dan laundry.' }
+                ],
+                feedbackKey: 'feedback_living',
+                feedbackLabel: 'Saran & Masukan Hotel / Asrama'
+            },
+            learning: {
+                id: 'learning',
+                title: 'Learning Experience',
+                desc: 'Ruang kelas, kurikulum materi pendidikan, metode pembelajaran, dan pengajar (SME)',
+                icon: '🎓',
+                color: '#10B981',
+                subcategories: [
+                    {
+                        id: 'ruang_kelas',
+                        title: 'Ruang Kelas',
+                        feedbackKey: 'feedback_ruang_kelas',
+                        items: [
+                            { id: 'learn_rk_kebersihan', label: 'Kebersihan & kelengkapan fasilitas ruang kelas', fullQuestion: 'Kebersihan dan kelengkapan fasilitas ruang kelas.' },
+                            { id: 'learn_rk_kenyamanan', label: 'Kenyamanan ruang kelas', fullQuestion: 'Kenyamanan ruang kelas.' },
+                            { id: 'learn_rk_pencahayaan', label: 'Pencahayaan ruang kelas', fullQuestion: 'Pencahayaan ruang kelas.' },
+                            { id: 'learn_rk_lcd', label: 'Kualitas LCD/Projector', fullQuestion: 'Kualitas LCD/Projector.' },
+                            { id: 'learn_rk_audio', label: 'Kualitas audio ruang kelas', fullQuestion: 'Kualitas audio.' },
+                            { id: 'learn_rk_internet', label: 'Kualitas koneksi internet di kelas', fullQuestion: 'Kualitas koneksi internet di kelas.' }
+                        ]
+                    },
+                    {
+                        id: 'materi',
+                        title: 'Materi Pendidikan',
+                        feedbackKey: 'feedback_materi',
+                        items: [
+                            { id: 'learn_mat_update', label: 'Materi update sesuai ketentuan terkini', fullQuestion: 'Materi pendidikan update sesuai ketentuan terkini.' },
+                            { id: 'learn_mat_kebutuhan', label: 'Materi sesuai kebutuhan kerja & wawasan baru', fullQuestion: 'Materi sesuai kebutuhan pekerjaan dan memberikan wawasan baru.' },
+                            { id: 'learn_mat_paham', label: 'Materi mudah dipahami', fullQuestion: 'Materi mudah dipahami.' },
+                            { id: 'learn_mat_studi_kasus', label: 'Studi kasus sesuai kondisi di BRI', fullQuestion: 'Studi kasus sesuai kondisi di BRI.' }
+                        ]
+                    },
+                    {
+                        id: 'metode',
+                        title: 'Metode Pembelajaran',
+                        feedbackKey: 'feedback_metode',
+                        items: [
+                            { id: 'learn_met_interaktif', label: 'Pembelajaran berlangsung interaktif', fullQuestion: 'Pembelajaran berlangsung interaktif.' },
+                            { id: 'learn_met_diskusi', label: 'Diskusi berjalan efektif & simulasi membantu', fullQuestion: 'Diskusi efektif dan simulasi membantu pemahaman.' },
+                            { id: 'learn_met_waktu', label: 'Waktu belajar dimanfaatkan dengan baik', fullQuestion: 'Waktu belajar dimanfaatkan dengan baik.' },
+                            { id: 'learn_met_menarik', label: 'Pelatihan menarik dan tidak membosankan', fullQuestion: 'Pelatihan menarik dan tidak membosankan.' }
+                        ]
+                    },
+                    {
+                        id: 'sme',
+                        title: 'Faculty Member / SME',
+                        feedbackKey: 'feedback_sme',
+                        items: [
+                            { id: 'learn_sme_materi', label: 'Penguasaan materi oleh SME', fullQuestion: 'Penguasaan materi.' },
+                            { id: 'learn_sme_menjelaskan', label: 'Kemampuan menjelaskan dan menjawab pertanyaan', fullQuestion: 'Kemampuan menjelaskan dan menjawab pertanyaan.' },
+                            { id: 'learn_sme_mengelola', label: 'Kemampuan mengelola kelas', fullQuestion: 'Kemampuan mengelola kelas.' },
+                            { id: 'learn_sme_profesional', label: 'Profesionalisme dan ketepatan waktu', fullQuestion: 'Profesionalisme dan ketepatan waktu.' },
+                            { id: 'learn_sme_contoh', label: 'Memberikan contoh nyata', fullQuestion: 'Memberikan contoh nyata.' }
+                        ]
+                    }
+                ]
+            },
+            hospitality: {
+                id: 'hospitality',
+                title: 'Hospitality Experience',
+                desc: 'Layanan petugas Entry Gate, Catering & Restoran, serta fasilitas penunjang kampus',
+                icon: '☕',
+                color: '#F37021',
+                subcategories: [
+                    {
+                        id: 'entry_gate',
+                        title: 'Entry Gate',
+                        feedbackKey: 'feedback_entry_gate',
+                        items: [
+                            { id: 'hosp_gate_standar', label: 'Standar Layanan (3S: Senyum, Sapa, Salam, Rapi, Ramah)', fullQuestion: 'Layanan sesuai standar: petugas rapi, bersih, ramah, senyum, sapa, salam.' },
+                            { id: 'hosp_gate_checkin', label: 'Kecepatan proses check-in', fullQuestion: 'Kecepatan proses check-in.' },
+                            { id: 'hosp_gate_petunjuk', label: 'Petunjuk & arahan yang jelas', fullQuestion: 'Petunjuk/arahan yang jelas.' }
+                        ]
+                    },
+                    {
+                        id: 'catering',
+                        title: 'Catering & Restoran',
+                        feedbackKey: 'feedback_catering',
+                        items: [
+                            { id: 'hosp_cat_kebersihan', label: 'Kebersihan restoran dan alat makan', fullQuestion: 'Kebersihan restoran dan alat makan.' },
+                            { id: 'hosp_cat_ramah', label: 'Keramahan petugas restoran', fullQuestion: 'Keramahan petugas restoran.' },
+                            { id: 'hosp_cat_variasi', label: 'Variasi menu makanan', fullQuestion: 'Variasi menu.' },
+                            { id: 'hosp_cat_rasa', label: 'Rasa makanan dan penyajian makanan', fullQuestion: 'Rasa dan penyajian makanan.' },
+                            { id: 'hosp_cat_kualitas', label: 'Kualitas makanan (Sarapan, Makan Siang, Malam & Coffee Break)', fullQuestion: 'Kualitas makanan termasuk sarapan, makan siang, makan malam, dan coffee break.' },
+                            { id: 'hosp_cat_waktu', label: 'Ketepatan waktu penyajian', fullQuestion: 'Ketepatan waktu penyajian.' },
+                            { id: 'hosp_cat_porsi', label: 'Kecukupan porsi makanan', fullQuestion: 'Kecukupan porsi makanan.' }
+                        ]
+                    },
+                    {
+                        id: 'campus_fac',
+                        title: 'Campus Facilities',
+                        feedbackKey: 'feedback_facilities',
+                        items: [
+                            { id: 'hosp_fac_kualitas', label: 'Kualitas dan kelengkapan Campus Facilities', fullQuestion: 'Kualitas dan kelengkapan Campus Facilities.' }
+                        ]
+                    }
+                ]
+            },
+            environment: {
+                id: 'environment',
+                title: 'Environment Experience',
+                desc: 'Keasrian lingkungan kampus, pencahayaan, akses digital (Brismart/Wi-Fi), dan NPS',
+                icon: '🌳',
+                color: '#8B5CF6',
+                subcategories: [
+                    {
+                        id: 'lingkungan',
+                        title: 'Lingkungan Campus',
+                        feedbackKey: 'feedback_lingkungan',
+                        items: [
+                            { id: 'env_lingk_kebersihan', label: 'Kebersihan, keindahan dan kenyamanan kampus & taman', fullQuestion: 'Kebersihan, keindahan, dan kenyamanan lingkungan Campus termasuk taman.' },
+                            { id: 'env_lingk_signage', label: 'Penunjuk arah (signage) dan jalur evakuasi', fullQuestion: 'Signage dan jalur evakuasi.' },
+                            { id: 'env_lingk_terang', label: 'Penerangan area Campus', fullQuestion: 'Penerangan area Campus.' }
+                        ]
+                    },
+                    {
+                        id: 'digital',
+                        title: 'Akses Digital',
+                        feedbackKey: 'feedback_digital',
+                        items: [
+                            { id: 'env_dig_info', label: 'Kemudahan memperoleh informasi pelatihan', fullQuestion: 'Kemudahan memperoleh informasi pelatihan.' },
+                            { id: 'env_dig_brismart', label: 'Kemudahan menggunakan Brismart & akses materi', fullQuestion: 'Kemudahan menggunakan Brismart dan mengakses materi pelatihan.' },
+                            { id: 'env_dig_wifi', label: 'Kualitas Wi-Fi selama pelatihan', fullQuestion: 'Kualitas Wi-Fi selama pelatihan.' }
+                        ]
+                    },
+                    {
+                        id: 'nps_section',
+                        title: 'Net Promoter Score (NPS)',
+                        feedbackKey: 'feedback_nps',
+                        items: [
+                            { id: 'env_nps_score', label: 'Kemungkinan merekomendasikan Regional Campus', fullQuestion: 'Seberapa besar kemungkinan Anda merekomendasikan Regional Campus kepada rekan kerja?' }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        // --- NORMALIZATION HELPER ---
+        const normalizeScore = (val) => {
+            if (val === undefined || val === null || val === '') return null;
+            const num = parseFloat(val);
+            if (isNaN(num)) return null;
+            if (num === 11) return 100;
+            if (num <= 5) return (num / 5) * 100;
+            if (num <= 10) return (num / 10) * 100;
+            return Math.min(100, Math.max(0, num));
+        };
+
+        // --- BLANK RESPONSE BUILDER (all fields null/default for unknown schemas) ---
+        const buildBlankResponse = () => ({
+            responseId:'', timestamp:'', campus:'Regional Campus', program:'Peserta Pelatihan', batch:'-',
+            liv_kamar:null, liv_kamar_mandi:null, liv_ketenangan:null, liv_housekeeping:null, feedback_living:'',
+            learn_rk_kebersihan:null, learn_rk_kenyamanan:null, learn_rk_pencahayaan:null, learn_rk_lcd:null, learn_rk_audio:null, learn_rk_internet:null, feedback_ruang_kelas:'',
+            learn_mat_update:null, learn_mat_kebutuhan:null, learn_mat_paham:null, learn_mat_studi_kasus:null, feedback_materi:'',
+            learn_met_interaktif:null, learn_met_diskusi:null, learn_met_waktu:null, learn_met_menarik:null, feedback_metode:'',
+            learn_sme_materi:null, learn_sme_menjelaskan:null, learn_sme_mengelola:null, learn_sme_profesional:null, learn_sme_contoh:null, feedback_sme:'',
+            hosp_gate_standar:null, hosp_gate_checkin:null, hosp_gate_petunjuk:null, feedback_entry_gate:'',
+            hosp_cat_kebersihan:null, hosp_cat_ramah:null, hosp_cat_variasi:null, hosp_cat_rasa:null, hosp_cat_kualitas:null, hosp_cat_waktu:null, hosp_cat_porsi:null, feedback_catering:'',
+            hosp_fac_kualitas:null, feedback_facilities:'',
+            env_lingk_kebersihan:null, env_lingk_signage:null, env_lingk_terang:null, feedback_lingkungan:'',
+            env_dig_info:null, env_dig_brismart:null, env_dig_wifi:null, feedback_digital:'',
+            env_nps_score:null, nps_raw_value:10, feedback_nps:''
+        });
+
+        // --- FORMAT DETECTION: checks CSV headers to determine if combined or per-category ---
+        const detectCSVFormat = (csvText) => {
+            const firstLine = (csvText || '').split('\n')[0] || '';
+            const headers = (Papa.parse(firstLine, { header: false }).data[0] || []).map(h => (h || '').toLowerCase().trim());
+            const isCombined = headers.some(h => h.includes('kelengkapan fasilitas dan kebersihan kamar'))
+                && headers.some(h => h.includes('kebersihan dan kelengkapan kamar mandi'));
+            return isCombined ? 'combined' : 'category';
+        };
+
+        // --- TEXT TO SCORE: derive numeric scores from qualitative answers ---
+        const mapTextToScore = (text) => {
+            if (!text || !text.trim()) return null;
+            const t = text.toLowerCase().trim();
+            if (t.includes('sangat membantu') || t.includes('sangat baik') || t.includes('sangat paham') || t.includes('sangat mudah') || t.includes('sangat di pahami')) return 95;
+            if (t.includes('sudah paham dan bisa menerapkan') || t.includes('bisa menerapkan')) return 90;
+            if (t.includes('ya, sangat membantu')) return 92;
+            if (t.includes('sudah bagus') || t.includes('sudah baik') || t.includes('sudah oke') || t.includes('sudah good') || t.includes('sudah sesuai')) return 85;
+            if (t.includes('mudah di mengerti') || t.includes('mudah dipahami') || t.includes('mudah di pahami')) return 88;
+            if (t.includes('penjelasan sangat rinci') || t.includes('pemaparan materi') || t.includes('pembawaan materi')) return 90;
+            if (t.includes('sangat bermanfaat') || t.includes('sangat menarik') || t.includes('menyenangkan')) return 92;
+            if (t.includes('sudah paham')) return 80;
+            if (t.includes('komunikasi dua arah') || t.includes('interaktif')) return 82;
+            if (t.includes('sharing') || t.includes('diskusi')) return 78;
+            if (t.includes('ok') || t.includes('oke')) return 75;
+            if (t.includes('paham sebagian')) return 60;
+            if (t.includes('belum sepenuhnya paham')) return 50;
+            if (t.includes('belum sepenuhnya terjawab')) return 65;
+            if (t.includes('sudah paham, namun belum dapat menerapkan')) return 55;
+            if (t.includes('perlu penjelasan lebih lanjut')) return 45;
+            if (t.includes('belum bisa') || t.includes('tidak paham') || t.includes('kurang')) return 30;
+            if (text.trim().length > 0) return 72;
+            return null;
+        };
+
+        const countTeachingMethods = (row) => {
+            let count = 0;
+            for (let i = 7; i <= 17; i++) {
+                if (row[i] && String(row[i]).trim()) count++;
+            }
+            return count;
+        };
+        const teachingMethodScore = (count) => {
+            if (count === 0) return 55;
+            if (count <= 2) return 65;
+            if (count <= 4) return 78;
+            if (count <= 6) return 85;
+            if (count <= 8) return 90;
+            return 95;
+        };
+        const hasMethod = (row, colIdx) => row[colIdx] && String(row[colIdx]).trim() ? true : false;
+
+        // --- UNIVERSAL PER-CATEGORY PARSER (auto-detects category from headers) ---
+        const parseCategoryCSV = (csvText) => {
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    header: false,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const data = results.data;
+                        if (!data || data.length < 2) {
+                            reject(new Error("File CSV tidak memiliki baris data yang cukup."));
+                            return;
+                        }
+                        const hl = data[0].map(h => (h || '').trim().toLowerCase());
+                        const rows = data.slice(1);
+
+                        // === PRE-CACHE: resolve ALL column indices ONCE (not per row) ===
+                        const findColIdx = (patterns) => {
+                            for (const p of patterns) {
+                                const pl = p.toLowerCase();
+                                if (!pl) continue;
+                                for (let i = 0; i < hl.length; i++) {
+                                    if (hl[i].includes(pl)) return i;
+                                }
+                            }
+                            return -1;
+                        };
+
+                        // Category detection
+                        const isLearning = hl.some(h => h.includes('lecturing') || h.includes('ceramah') || h.includes('pengajar'));
+                        const isLiving = hl.some(h => (h.includes('kamar') && (h.includes('bersih') || h.includes('nyaman'))) || h.includes('housekeeping') || h.includes('laundry') || h.includes('asrama') || h.includes('menginap'));
+                        const isHospitality = hl.some(h => h.includes('catering') || h.includes('restoran') || (h.includes('makanan') && !h.includes('menginap')) || h.includes('check-in'));
+                        const isEnvironment = hl.some(h => h.includes('brismart') || h.includes('lingkungan campus') || h.includes('signage'));
+                        const isNPS = hl.some(h => h.includes('rekomendasikan') || h.includes('net promoter'));
+
+                        // Cache metadata column indices
+                        const colId = findColIdx(['#', 'response id', 'id']);
+                        const colCampus = findColIdx(['regional campus', 'campus', 'lokasi', 'nama kampus', 'lokasi tempat menginap', 'nama catering']);
+                        const colProgram = findColIdx(['nama program', 'program', 'pelatihan', 'nama pelatihan']);
+                        const colBatch = findColIdx(['nomor batch', 'batch', 'gelombang']);
+                        const colTimestamp = findColIdx(['submit date', 'start date', 'tanggal submit', 'tanggal']);
+                        const colNps = findColIdx(['seberapa besar kemungkinan', 'rekomendasikan', 'nps']);
+                        const colFbGood = findColIdx(['sudah baik', 'perlu dipertahankan', 'yang sudah baik']);
+                        const colFbImprove = findColIdx(['perlu ditingkatkan', 'perlu diperbaikan', 'yang perlu ditingkatkan']);
+                        const colRateQa = findColIdx(['peserta bertanya', 'menjawab dengan relevan', 'menjawab']);
+                        const colRateApply = findColIdx(['menerapkan materi', 'sejauh mana', 'dapat menerapkan']);
+                        const colSaran = findColIdx(['saran dan masukan', 'saran untuk', 'masukan']);
+                        const colAlasan = findColIdx(['alasan utama', 'alasan memberikan', 'alasan']);
+                        const colCeritakan = findColIdx(['ceritakan pengalaman', 'ceritakan']);
+
+                        // Cache teaching method column indices
+                        const methodColMap = {};
+                        [['lecturing','ceramah','lecturing'],['tanya jawab','','tanya_jawab'],['diskusi kelompok','','diskusi'],
+                         ['demonstrasi','hands on','demo'],['praktik langsung','','praktik'],['presentasi','','presentasi'],
+                         ['role play','','roleplay'],['case study','','casestudy'],['video learning','','video'],
+                         ['sharing session','','sharing'],['peer learning','','peer']].forEach(([a,b,key]) => {
+                            const patterns = b ? [a, b] : [a];
+                            const idx = findColIdx(patterns);
+                            if (idx !== -1) methodColMap[key] = idx;
+                        });
+
+                        // Cache score column indices
+                        const scoreIdxMap = {};
+                        const scoreDefs = [
+                            ['kebersihan kamar','fasilitas kamar','kenyamanan kamar','liv_kamar'],
+                            ['kamar mandi','kebersihan kamar mandi','liv_kamar_mandi'],
+                            ['ketenangan','keamanan asrama','keamanan hotel','keramahan petugas hotel','keramahan petugas (resepsionis','liv_ketenangan'],
+                            ['housekeeping','laundry','liv_housekeeping'],
+                            ['kebersihan ruang kelas','fasilitas ruang kelas','learn_rk_kebersihan'],['kenyamanan ruang kelas','','learn_rk_kenyamanan'],
+                            ['pencahayaan ruang','penerangan ruang','learn_rk_pencahayaan'],['lcd','projector','learn_rk_lcd'],
+                            ['audio ruang','kualitas audio','learn_rk_audio'],['internet di kelas','wifi di kelas','koneksi internet','learn_rk_internet'],
+                            ['materi update','materi sesuai ketentuan','learn_mat_update'],['materi sesuai kebutuhan','kebutuhan kerja','learn_mat_kebutuhan'],
+                            ['materi mudah dipahami','mudah dipahami','learn_mat_paham'],['studi kasus','','learn_mat_studi_kasus'],
+                            ['pembelajaran interaktif','interaktif','learn_met_interaktif'],['diskusi efektif','simulasi','learn_met_diskusi'],
+                            ['waktu belajar','','learn_met_waktu'],['pelatihan menarik','tidak membosankan','learn_met_menarik'],
+                            ['penguasaan materi','','learn_sme_materi'],['menjelaskan dan menjawab','kemampuan menjelaskan','learn_sme_menjelaskan'],
+                            ['mengelola kelas','','learn_sme_mengelola'],['profesionalisme','ketepatan waktu','learn_sme_profesional'],
+                            ['contoh nyata','memberikan contoh','learn_sme_contoh'],
+                            ['standar layanan','senyum, sapa, salam','3s','hosp_gate_standar'],
+                            ['check-in','check in','proses check','hosp_gate_checkin'],['petunjuk','arahan yang jelas','hosp_gate_petunjuk'],
+                            ['kebersihan restoran','kebersihan dan higienitas','alat makan','hosp_cat_kebersihan'],['keramahan petugas restoran','keramahan petugas catering','hosp_cat_ramah'],
+                            ['variasi menu','hosp_cat_variasi'],['rasa makanan','penyajian makanan','rasa dan penyajian','hosp_cat_rasa'],
+                            ['kualitas makanan','kepuasan terhadap kualitas','coffee break','hosp_cat_kualitas'],
+                            ['ketepatan waktu penyajian','','hosp_cat_waktu'],
+                            ['porsi makanan','kecukupan porsi','porsi yang cukup','hosp_cat_porsi'],
+                            ['kualitas dan kelengkapan campus facilities','hosp_fac_kualitas'],
+                            ['keindahan dan kenyamanan lingkungan','taman','env_lingk_kebersihan'],['signage','jalur evakuasi','env_lingk_signage'],
+                            ['penerangan area','pencahayaan area','env_lingk_terang'],['informasi pelatihan','','env_dig_info'],
+                            ['brismart','akses materi','env_dig_brismart'],['wi-fi selama','kualitas wi-fi','wifi selama','env_dig_wifi']
+                        ];
+                        scoreDefs.forEach(s => {
+                            const field = s[s.length - 1];
+                            const patterns = s.slice(0, -1);
+                            scoreIdxMap[field] = findColIdx(patterns);
+                        });
+
+                        // Detect unmatched text columns for fallback feedback
+                        const skipCols = new Set([colId,colCampus,colProgram,colBatch,colTimestamp,colNps,colFbGood,colFbImprove,colRateQa,colRateApply,colSaran,colAlasan,colCeritakan]);
+                        Object.values(methodColMap).forEach(i => skipCols.add(i));
+                        for (const field in scoreIdxMap) { if(scoreIdxMap[field]>=0) skipCols.add(scoreIdxMap[field]); }
+                        const extraTextCols = [];
+                        const skipHeaders = ['upload','evidence','response type','start date','stage date','submit date','network','tags','ending','network id'];
+                        hl.forEach((h,i) => {
+                            if (skipCols.has(i) || i < 0) return;
+                            if (skipHeaders.some(s => h.includes(s))) return;
+                            if (i >= 8 && i <= 17) return;
+                            const sample = rows[0] ? (rows[0][i] || '').trim() : '';
+                            if (sample && isNaN(parseFloat(sample))) {
+                                extraTextCols.push(i);
+                            }
+                        });
+
+                        const todayStr = new Date().toISOString().split('T')[0];
+
+                        // === ROW LOOP: uses cached indices only, no string matching ===
+                        const parsedRows = [];
+                        for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+                            const row = rows[rIdx];
+                            if (!row || row.length < 3) continue;
+                            const resp = buildBlankResponse();
+                            resp.responseId = colId !== -1 && row[colId] ? String(row[colId]).trim() : `RESP-${rIdx + 1}`;
+                            resp.campus = colCampus !== -1 && row[colCampus] ? String(row[colCampus]).trim() : 'Regional Campus';
+                            resp.program = colProgram !== -1 && row[colProgram] ? String(row[colProgram]).trim() : 'Peserta Pelatihan';
+                            resp.batch = colBatch !== -1 && row[colBatch] ? String(row[colBatch]).trim() : '-';
+                            resp.timestamp = (colTimestamp !== -1 && row[colTimestamp])
+                                ? String(row[colTimestamp]).trim().split(' ')[0].split('T')[0] : todayStr;
+
+                            if (colNps !== -1) {
+                                const npsRaw = parseFloat(row[colNps]);
+                                if (!isNaN(npsRaw)) {
+                                    resp.env_nps_score = normalizeScore(npsRaw);
+                                    resp.nps_raw_value = npsRaw === 11 ? 10 : npsRaw;
+                                }
+                            }
+
+                            const fbGood = colFbGood !== -1 ? (row[colFbGood] || '').trim() : '';
+                            const fbImprove = colFbImprove !== -1 ? (row[colFbImprove] || '').trim() : '';
+                            const rateQa = colRateQa !== -1 ? (row[colRateQa] || '').trim() : '';
+                            const rateApply = colRateApply !== -1 ? (row[colRateApply] || '').trim() : '';
+                            const saran = colSaran !== -1 ? (row[colSaran] || '').trim() : '';
+                            const alasan = colAlasan !== -1 ? (row[colAlasan] || '').trim() : '';
+                            const ceritakan = colCeritakan !== -1 ? (row[colCeritakan] || '').trim() : '';
+                            const extraFeedbacks = extraTextCols.map(ci => (row[ci] || '').trim()).filter(t => t.length > 0);
+
+                            if (isLearning) {
+                                const qaScore = mapTextToScore(rateQa);
+                                const applyScore = mapTextToScore(rateApply);
+                                const goodScore = mapTextToScore(fbGood);
+                                const baseFromText = qaScore || applyScore || goodScore || 72;
+                                const methodCount = countTeachingMethods(row);
+                                const methodBase = teachingMethodScore(methodCount);
+                                const hasD = methodColMap.diskusi !== undefined && hasMethod(row, methodColMap.diskusi);
+                                const hasP = methodColMap.presentasi !== undefined && hasMethod(row, methodColMap.presentasi);
+                                const hasCs = methodColMap.casestudy !== undefined && hasMethod(row, methodColMap.casestudy);
+                                const hasV = methodColMap.video !== undefined && hasMethod(row, methodColMap.video);
+                                const hasR = methodColMap.roleplay !== undefined && hasMethod(row, methodColMap.roleplay);
+                                const hasDm = methodColMap.demo !== undefined && hasMethod(row, methodColMap.demo);
+                                const b80 = baseFromText >= 80;
+                                resp.learn_rk_kebersihan = b80 ? 80 : (baseFromText >= 60 ? 72 : 60);
+                                resp.learn_rk_kenyamanan = b80 ? 82 : (baseFromText >= 60 ? 74 : 62);
+                                resp.learn_rk_pencahayaan = 78; resp.learn_rk_lcd = 76; resp.learn_rk_audio = 75; resp.learn_rk_internet = 74;
+                                resp.learn_mat_update = applyScore || (b80 ? 82 : 70);
+                                resp.learn_mat_kebutuhan = applyScore ? Math.min(98, applyScore + 2) : (b80 ? 80 : 68);
+                                resp.learn_mat_paham = applyScore || (b80 ? 85 : 72);
+                                resp.learn_mat_studi_kasus = hasCs ? Math.min(98, baseFromText + 5) : (b80 ? 78 : 65);
+                                resp.learn_met_interaktif = hasD || hasR ? Math.min(98, methodBase + 5) : methodBase;
+                                resp.learn_met_diskusi = hasD ? Math.min(98, methodBase + 8) : (methodBase - 5);
+                                resp.learn_met_waktu = methodBase >= 80 ? 85 : (methodBase >= 70 ? 78 : 68);
+                                resp.learn_met_menarik = methodCount >= 5 ? Math.min(98, methodBase + 5) : (methodCount >= 3 ? methodBase : methodBase - 3);
+                                resp.learn_sme_materi = qaScore || (b80 ? 85 : 72);
+                                resp.learn_sme_menjelaskan = qaScore || (b80 ? 83 : 70);
+                                resp.learn_sme_mengelola = methodCount >= 4 ? Math.min(95, methodBase + 3) : methodBase;
+                                resp.learn_sme_profesional = qaScore ? Math.min(98, qaScore + 2) : (b80 ? 82 : 70);
+                                resp.learn_sme_contoh = hasCs || hasV || hasDm ? Math.min(95, baseFromText + 5) : baseFromText;
+                                resp.feedback_sme = rateQa || fbGood;
+                                resp.feedback_metode = rateApply || fbImprove;
+                                resp.feedback_materi = saran || fbGood;
+                                resp.feedback_ruang_kelas = fbImprove || '';
+                                resp.feedback_nps = alasan || '';
+                            } else if (isLiving) {
+                                resp.feedback_living = [ceritakan, fbGood, fbImprove, saran, alasan, ...extraFeedbacks].filter(Boolean).join('; ');
+                                resp.feedback_nps = alasan || '';
+                            } else if (isHospitality) {
+                                resp.feedback_catering = [ceritakan, saran, fbGood, fbImprove, alasan, ...extraFeedbacks].filter(Boolean).join('; ');
+                                resp.feedback_entry_gate = rateQa || '';
+                                resp.feedback_facilities = rateApply || '';
+                                resp.feedback_nps = alasan || '';
+                            } else if (isEnvironment || isNPS) {
+                                resp.feedback_lingkungan = fbGood || saran;
+                                resp.feedback_digital = fbImprove || '';
+                                resp.feedback_nps = alasan || rateQa;
+                            } else {
+                                resp.feedback_sme = rateQa || fbGood;
+                                resp.feedback_metode = rateApply || fbImprove;
+                                resp.feedback_nps = alasan || saran;
+                            }
+
+                            // Apply direct numeric score overrides from CSV columns (if present)
+                            for (const field in scoreIdxMap) {
+                                const idx = scoreIdxMap[field];
+                                if (idx !== -1) {
+                                    const raw = idx < row.length ? (row[idx] || '').toString().trim() : '';
+                                    if (raw) {
+                                        const v = normalizeScore(raw);
+                                        if (v !== null) resp[field] = v;
+                                    }
+                                }
+                            }
+                            parsedRows.push(resp);
+                        }
+
+                        if (parsedRows.length === 0) {
+                            reject(new Error("Tidak ada data valid yang terdeteksi dari file."));
+                            return;
+                        }
+                        resolve(parsedRows);
+                    },
+                    error: (err) => reject(err)
+                });
+            });
+        };
+
+        // --- SMART CSV / SPREADSHEET PARSER (auto-detects format) ---
+        const parseSurveyCSV = (csvText) => {
+            const fmt = detectCSVFormat(csvText);
+            if (fmt === 'category') {
+                return parseCategoryCSV(csvText);
+            }
+
+            // === COMBINED FORMAT (original positional + pattern logic) ===
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    header: false,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const data = results.data;
+                        if (!data || data.length < 2) {
+                            reject(new Error("File CSV tidak memiliki baris data yang cukup."));
+                            return;
+                        }
+
+                        const headers = data[0].map(h => (h || '').trim());
+                        const rows = data.slice(1);
+
+                        const findColIdx = (patterns) => {
+                            for (const pattern of patterns) {
+                                const pLower = pattern.toLowerCase();
+                                const idx = headers.findIndex(h => h.toLowerCase().includes(pLower));
+                                if (idx !== -1) return idx;
+                            }
+                            return -1;
+                        };
+
+                        const parsedRows = rows.map((row, rIdx) => {
+                            if (!row || row.length === 0 || (row.length === 1 && !row[0])) return null;
+
+                            const hasPositionalMatch = headers.length >= 50;
+
+                            const getValue = (patterns, positionalIdx) => {
+                                // Priority 1: Positional index mapping (critical when multiple columns share identical names like 'Saran dan masukan perbaikan')
+                                if (positionalIdx !== undefined && positionalIdx >= 0 && positionalIdx < row.length) {
+                                    if (hasPositionalMatch) {
+                                        const val = row[positionalIdx];
+                                        return (val !== undefined && val !== null) ? String(val).trim() : '';
+                                    }
+                                    const h = (headers[positionalIdx] || '').toLowerCase();
+                                    if (patterns.some(p => h.includes(p.toLowerCase()))) {
+                                        const val = row[positionalIdx];
+                                        return (val !== undefined && val !== null) ? String(val).trim() : '';
+                                    }
+                                }
+
+                                // Priority 2: Search by pattern in column headers
+                                const idx = findColIdx(patterns);
+                                if (idx !== -1 && row[idx] !== undefined && row[idx] !== null) {
+                                    return String(row[idx]).trim();
+                                }
+                                return '';
+                            };
+
+                            const getNum = (patterns, positionalIdx) => {
+                                const raw = getValue(patterns, positionalIdx);
+                                return normalizeScore(raw);
+                            };
+
+                            const npsRaw = parseFloat(getValue(['seberapa besar kemungkinan', 'rekomendasikan regional campus', 'nps'], 51) || 10);
+
+                            return {
+                                responseId: getValue(['response id', '#', 'id'], 0) || `RESP-${rIdx + 1}`,
+                                timestamp: (getValue(['submit date', 'start date', 'timestamp', 'tanggal'], 56) || new Date().toISOString()).split('T')[0].split(' ')[0],
+                                campus: getValue(['campus', 'regional campus', 'lokasi', 'nama kampus'], -1) || 'Regional Campus',
+                                program: getValue(['program', 'pelatihan', 'nama pelatihan', 'batch'], -1) || 'Peserta Pelatihan',
+                                batch: getValue(['batch', 'gelombang'], -1) || 'Batch Terdaftar',
+
+                                liv_kamar: getNum(['kelengkapan fasilitas dan kebersihan kamar'], 1),
+                                liv_kamar_mandi: getNum(['kebersihan dan kelengkapan kamar mandi'], 2),
+                                liv_ketenangan: getNum(['ketenangan lingkungan dan keamanan'], 3),
+                                liv_housekeeping: getNum(['ketepatan housekeeping dan laundry'], 4),
+                                feedback_living: getValue(['saran dan masukan perbaikan'], 5),
+
+                                learn_rk_kebersihan: getNum(['kebersihan dan kelengkapan fasilitas ruang kelas'], 6),
+                                learn_rk_kenyamanan: getNum(['kenyamanan ruang kelas'], 7),
+                                learn_rk_pencahayaan: getNum(['pencahayaan ruang kelas'], 8),
+                                learn_rk_lcd: getNum(['kualitas lcd/projector', 'lcd'], 9),
+                                learn_rk_audio: getNum(['kualitas audio'], 10),
+                                learn_rk_internet: getNum(['kualitas koneksi internet di kelas'], 11),
+                                feedback_ruang_kelas: getValue(['saran dan masukan perbaikan'], 12),
+
+                                learn_mat_update: getNum(['materi pendidikan update'], 13),
+                                learn_mat_kebutuhan: getNum(['materi sesuai kebutuhan pekerjaan'], 14),
+                                learn_mat_paham: getNum(['materi mudah dipahami'], 15),
+                                learn_mat_studi_kasus: getNum(['studi kasus sesuai kondisi di bri'], 16),
+                                feedback_materi: getValue(['saran dan masukan perbaikan'], 17),
+
+                                learn_met_interaktif: getNum(['pembelajaran berlangsung interaktif'], 18),
+                                learn_met_diskusi: getNum(['diskusi efektif dan simulasi', 'simulasi'], 19),
+                                learn_met_waktu: getNum(['waktu belajar dimanfaatkan dengan baik'], 20),
+                                learn_met_menarik: getNum(['pelatihan menarik dan tidak membosankan'], 21),
+                                feedback_metode: getValue(['saran dan masukan perbaikan'], 22),
+
+                                learn_sme_materi: getNum(['penguasaan materi'], 23),
+                                learn_sme_menjelaskan: getNum(['kemampuan menjelaskan dan menjawab'], 24),
+                                learn_sme_mengelola: getNum(['kemampuan mengelola kelas'], 25),
+                                learn_sme_profesional: getNum(['profesionalisme dan ketepatan waktu'], 26),
+                                learn_sme_contoh: getNum(['memberikan contoh nyata'], 27),
+                                feedback_sme: getValue(['saran dan masukan perbaikan'], 28),
+
+                                hosp_gate_standar: getNum(['layanan sesuai standar', 'senyum, sapa, salam'], 29),
+                                hosp_gate_checkin: getNum(['kecepatan proses check-in'], 30),
+                                hosp_gate_petunjuk: getNum(['petunjuk/arahan yang jelas', 'petunjuk'], 31),
+                                feedback_entry_gate: getValue(['saran dan masukan perbaikan'], 32),
+
+                                hosp_cat_kebersihan: getNum(['kebersihan restoran dan alat makan'], 33),
+                                hosp_cat_ramah: getNum(['keramahan petugas restoran'], 34),
+                                hosp_cat_variasi: getNum(['variasi menu'], 35),
+                                hosp_cat_rasa: getNum(['rasa dan penyajian makanan'], 36),
+                                hosp_cat_kualitas: getNum(['kualitas makanan termasuk sarapan', 'coffee break'], 37),
+                                hosp_cat_waktu: getNum(['ketepatan waktu penyajian'], 38),
+                                hosp_cat_porsi: getNum(['kecukupan porsi makanan'], 39),
+                                feedback_catering: getValue(['saran dan masukan perbaikan'], 40),
+
+                                hosp_fac_kualitas: getNum(['kualitas dan kelengkapan campus facilities'], 41),
+                                feedback_facilities: getValue(['saran dan masukan untuk perbaikan'], 42),
+
+                                env_lingk_kebersihan: getNum(['kebersihan, keindahan, dan kenyamanan lingkungan campus'], 43),
+                                env_lingk_signage: getNum(['signage dan jalur evakuasi'], 44),
+                                env_lingk_terang: getNum(['penerangan area campus'], 45),
+                                feedback_lingkungan: getValue(['saran dan masukan perbaikan'], 46),
+
+                                env_dig_info: getNum(['kemudahan memperoleh informasi pelatihan'], 47),
+                                env_dig_brismart: getNum(['kemudahan menggunakan brismart'], 48),
+                                env_dig_wifi: getNum(['kualitas wi-fi selama pelatihan', 'wi-fi'], 49),
+                                feedback_digital: getValue(['saran dan masukan perbaikan'], 50),
+
+                                env_nps_score: getNum(['seberapa besar kemungkinan anda merekomendasikan regional campus'], 51),
+                                nps_raw_value: isNaN(npsRaw) ? 10 : (npsRaw === 11 ? 10 : npsRaw),
+                                feedback_nps: getValue(['apa alasan utama anda memberikan nilai tersebut', 'alasan utama'], 52)
+                            };
+                        }).filter(Boolean);
+
+                        resolve(parsedRows);
+                    },
+                    error: (err) => reject(err)
+                });
+            });
+        };
+
+        // --- STATS COMPUTATION HOOK ---
+        const useSurveyAnalytics = (data, filters, passGrade) => {
+            return useMemo(() => {
+                if (!data || data.length === 0) return null;
+
+                let filtered = data;
+                const now = new Date();
+                const todayStr = now.toISOString().split('T')[0];
+                if (filters.campus !== 'All' || filters.program !== 'All' || filters.batch !== 'All' || filters.dateRange !== 'All') {
+                    const past7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    filtered = data.filter(item => {
+                        if (filters.campus !== 'All' && item.campus !== filters.campus) return false;
+                        if (filters.program !== 'All' && item.program !== filters.program) return false;
+                        if (filters.batch !== 'All' && item.batch !== filters.batch) return false;
+                        if (filters.dateRange !== 'All') {
+                            if (filters.dateRange === 'Today' && item.timestamp !== todayStr) return false;
+                            if (filters.dateRange === '7Days' && new Date(item.timestamp) < past7) return false;
+                            if (filters.dateRange === '30Days' && new Date(item.timestamp) < past30) return false;
+                            if (filters.dateRange === 'ThisMonth') {
+                                const d = new Date(item.timestamp);
+                                if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+                            }
+                        }
+                        return true;
+                    });
+                }
+
+                if (filtered.length === 0) return null;
+
+                // === SINGLE-PASS: accumulate sums/counts for ALL score keys at once ===
+                const allScoreKeys = [];
+                const processPillarItems = (pDef) => {
+                    const addItems = (items, subcat) => {
+                        items.forEach(it => allScoreKeys.push({ id: it.id, label: it.label, fullQuestion: it.fullQuestion, subcategory: subcat.title }));
+                    };
+                    if (pDef.items) addItems(pDef.items, pDef);
+                    if (pDef.subcategories) pDef.subcategories.forEach(sub => addItems(sub.items, sub));
+                };
+                processPillarItems(SURVEY_SCHEMA.living);
+                processPillarItems(SURVEY_SCHEMA.learning);
+                processPillarItems(SURVEY_SCHEMA.hospitality);
+                processPillarItems(SURVEY_SCHEMA.environment);
+
+                const keySums = {};
+                const keyCounts = {};
+                allScoreKeys.forEach(k => { keySums[k.id] = 0; keyCounts[k.id] = 0; });
+
+                let promoters = 0, passives = 0, detractors = 0;
+                let todayCount = 0;
+                const feedbackFields = [
+                    { key: 'feedback_living', category: 'Living', title: 'Hotel / Asrama' },
+                    { key: 'feedback_ruang_kelas', category: 'Learning', title: 'Ruang Kelas' },
+                    { key: 'feedback_materi', category: 'Learning', title: 'Materi Pendidikan' },
+                    { key: 'feedback_metode', category: 'Learning', title: 'Metode Pembelajaran' },
+                    { key: 'feedback_sme', category: 'Learning', title: 'Faculty Member / SME' },
+                    { key: 'feedback_entry_gate', category: 'Hospitality', title: 'Entry Gate' },
+                    { key: 'feedback_catering', category: 'Hospitality', title: 'Catering & Restoran' },
+                    { key: 'feedback_facilities', category: 'Hospitality', title: 'Campus Facilities' },
+                    { key: 'feedback_lingkungan', category: 'Environment', title: 'Lingkungan Campus' },
+                    { key: 'feedback_digital', category: 'Environment', title: 'Akses Digital' },
+                    { key: 'feedback_nps', category: 'NPS', title: 'Rekomendasi & Alasan NPS' }
+                ];
+                const feedbacks = [];
+
+                for (let i = 0; i < filtered.length; i++) {
+                    const row = filtered[i];
+                    // Accumulate scores
+                    for (let j = 0; j < allScoreKeys.length; j++) {
+                        const k = allScoreKeys[j].id;
+                        const v = row[k];
+                        if (typeof v === 'number' && !isNaN(v)) {
+                            keySums[k] += v;
+                            keyCounts[k]++;
+                        }
+                    }
+                    // NPS
+                    const rawVal = row.nps_raw_value !== undefined ? row.nps_raw_value : (row.env_nps_score ? row.env_nps_score / 10 : 10);
+                    if (rawVal >= 9) promoters++;
+                    else if (rawVal >= 7) passives++;
+                    else detractors++;
+                    // Today count
+                    if (row.timestamp === todayStr) todayCount++;
+                    // Feedbacks
+                    for (let f = 0; f < feedbackFields.length; f++) {
+                        const fb = feedbackFields[f];
+                        const txt = row[fb.key];
+                        if (txt && typeof txt === 'string' && txt.trim().length > 0) {
+                            feedbacks.push({
+                                responseId: row.responseId, timestamp: row.timestamp,
+                                campus: row.campus, program: row.program, batch: row.batch,
+                                category: fb.category, subTitle: fb.title, text: txt.trim()
+                            });
+                        }
+                    }
+                }
+
+                const calcAvgFromCache = (keys) => {
+                    let total = 0, count = 0;
+                    keys.forEach(k => { total += keySums[k]; count += keyCounts[k]; });
+                    return count > 0 ? total / count : 0;
+                };
+
+                // Build itemScores and allItemsList from cache
+                const itemScores = {};
+                const allItemsList = [];
+                const pillarMap = { liv: 'Living', learn: 'Learning', hosp: 'Hospitality', env: 'Environment' };
+                allScoreKeys.forEach(sk => {
+                    const score = keyCounts[sk.id] > 0 ? keySums[sk.id] / keyCounts[sk.id] : 0;
+                    const pId = sk.id.split('_')[0];
+                    itemScores[sk.id] = score;
+                    allItemsList.push({
+                        id: sk.id, pillar: pillarMap[pId] || 'Other',
+                        pillarId: pId, subcategory: sk.subcategory,
+                        label: sk.label, fullQuestion: sk.fullQuestion,
+                        score, isPass: score >= passGrade
+                    });
+                });
+
+                const livingScore = calcAvgFromCache(SURVEY_SCHEMA.living.items.map(i => i.id));
+                const learningRuangScore = calcAvgFromCache(SURVEY_SCHEMA.learning.subcategories[0].items.map(i => i.id));
+                const learningMateriScore = calcAvgFromCache(SURVEY_SCHEMA.learning.subcategories[1].items.map(i => i.id));
+                const learningMetodeScore = calcAvgFromCache(SURVEY_SCHEMA.learning.subcategories[2].items.map(i => i.id));
+                const learningSmeScore = calcAvgFromCache(SURVEY_SCHEMA.learning.subcategories[3].items.map(i => i.id));
+                const learningScore = (learningRuangScore + learningMateriScore + learningMetodeScore + learningSmeScore) / 4;
+                const hospitalityGateScore = calcAvgFromCache(SURVEY_SCHEMA.hospitality.subcategories[0].items.map(i => i.id));
+                const hospitalityCateringScore = calcAvgFromCache(SURVEY_SCHEMA.hospitality.subcategories[1].items.map(i => i.id));
+                const hospitalityFacScore = calcAvgFromCache(SURVEY_SCHEMA.hospitality.subcategories[2].items.map(i => i.id));
+                const hospitalityScore = (hospitalityGateScore + hospitalityCateringScore + hospitalityFacScore) / 3;
+                const envLingkunganScore = calcAvgFromCache(SURVEY_SCHEMA.environment.subcategories[0].items.map(i => i.id));
+                const envDigitalScore = calcAvgFromCache(SURVEY_SCHEMA.environment.subcategories[1].items.map(i => i.id));
+                const envNpsScore = calcAvgFromCache(SURVEY_SCHEMA.environment.subcategories[2].items.map(i => i.id));
+                const environmentScore = (envLingkunganScore + envDigitalScore + envNpsScore) / 3;
+                const overallScore = (livingScore + learningScore + hospitalityScore + environmentScore) / 4;
+
+                const totalNpsRespondents = promoters + passives + detractors || 1;
+                const pctPromoters = (promoters / totalNpsRespondents) * 100;
+                const pctPassives = (passives / totalNpsRespondents) * 100;
+                const pctDetractors = (detractors / totalNpsRespondents) * 100;
+                const npsIndex = Math.round(pctPromoters - pctDetractors);
+
+                const sortedItems = [...allItemsList].sort((a, b) => b.score - a.score);
+                const topStrengths = sortedItems.slice(0, 4);
+                const areasToImprove = sortedItems.filter(i => i.score < passGrade).sort((a, b) => a.score - b.score);
+
+                return {
+                    totalResponses: filtered.length,
+                    todayCount,
+                    overallScore,
+                    livingScore,
+                    learningScore,
+                    hospitalityScore,
+                    environmentScore,
+                    learningSub: {
+                        ruang: learningRuangScore,
+                        materi: learningMateriScore,
+                        metode: learningMetodeScore,
+                        sme: learningSmeScore
+                    },
+                    hospitalitySub: {
+                        gate: hospitalityGateScore,
+                        catering: hospitalityCateringScore,
+                        facilities: hospitalityFacScore
+                    },
+                    environmentSub: {
+                        lingkungan: envLingkunganScore,
+                        digital: envDigitalScore,
+                        nps: envNpsScore
+                    },
+                    nps: {
+                        score: npsIndex,
+                        promoters: pctPromoters,
+                        passives: pctPassives,
+                        detractors: pctDetractors,
+                        counts: { promoters, passives, detractors, total: totalNpsRespondents }
+                    },
+                    itemScores,
+                    allItemsList,
+                    sortedItems,
+                    topStrengths,
+                    areasToImprove,
+                    feedbacks
+                };
+            }, [data, filters, passGrade]);
+        };
+
+        // --- CIRCLE PROGRESS COMPONENT ---
+        const CircleProgress = ({ value = 0, size = 90, strokeWidth = 8, color = '#00529C', sublabel = '' }) => {
+            const radius = (size - strokeWidth) / 2;
+            const circumference = 2 * Math.PI * radius;
+            const progress = Math.min(100, Math.max(0, value));
+            const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+            return (
+                <div className="relative inline-flex items-center justify-center flex-shrink-0" style={{ width: size, height: size }}>
+                    <svg className="transform -rotate-90" width={size} height={size}>
+                        <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke="#E2E8F0"
+                            strokeWidth={strokeWidth}
+                            fill="transparent"
+                        />
+                        <circle
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke={color}
+                            strokeWidth={strokeWidth}
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeDashoffset}
+                            strokeLinecap="round"
+                            fill="transparent"
+                            style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }}
+                        />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                        <span className="text-lg font-extrabold text-slate-800 leading-tight">
+                            {value.toFixed(1)}<span className="text-[10px] font-semibold text-slate-500">%</span>
+                        </span>
+                        {sublabel && <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">{sublabel}</span>}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- HORIZONTAL BAR ITEM COMPONENT ---
+        const ScoreBar = ({ label, score, passGrade = 80, color = '#00529C' }) => {
+            const isPass = score >= passGrade;
+            const barColor = isPass ? color : '#EF4444';
+
+            return (
+                <div className="group mb-3">
+                    <div className="flex justify-between items-center text-xs mb-1">
+                        <span className="font-medium text-slate-700 truncate pr-2 group-hover:text-bri-blue transition-colors" title={label}>
+                            {label}
+                        </span>
+                        <span className={`font-bold px-1.5 py-0.5 rounded text-[11px] flex-shrink-0 ${isPass ? 'text-slate-800 bg-slate-100' : 'text-red-700 bg-red-50'}`}>
+                            {score.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div className="relative w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div
+                            className="h-full rounded-full transition-all duration-700 ease-out"
+                            style={{ width: `${Math.min(100, Math.max(0, score))}%`, backgroundColor: barColor }}
+                        />
+                        <div 
+                            className="absolute top-0 bottom-0 w-0.5 bg-slate-400 opacity-60 z-10"
+                            style={{ left: `${passGrade}%` }}
+                            title={`Target: ${passGrade}%`}
+                        />
+                    </div>
+                </div>
+            );
+        };
+
+        // --- EMPTY STATE / HERO UPLOADER COMPONENT ---
+        const UploadHero = ({ onUploadSuccess, onLoadDatabaseCSV }) => {
+            const [isDragging, setIsDragging] = useState(false);
+            const [googleUrl, setGoogleUrl] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [errorMsg, setErrorMsg] = useState('');
+            const fileInputRef = useRef(null);
+
+            const parseSingleFile = (file) => {
+                return new Promise((resolve, reject) => {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    const reader = new FileReader();
+                    reader.onload = async (evt) => {
+                        try {
+                            let parsed = [];
+                            if (ext === 'csv') {
+                                parsed = await parseSurveyCSV(evt.target.result);
+                            } else {
+                                const data = new Uint8Array(evt.target.result);
+                                const workbook = XLSX.read(data, { type: 'array' });
+                                const allRows = [];
+                                for (const sheetName of workbook.SheetNames) {
+                                    const sheet = workbook.Sheets[sheetName];
+                                    const csvText = XLSX.utils.sheet_to_csv(sheet);
+                                    const sheetParsed = await parseSurveyCSV(csvText);
+                                    if (sheetParsed && sheetParsed.length > 0) allRows.push(...sheetParsed);
+                                }
+                                parsed = allRows;
+                            }
+                            if (!parsed || parsed.length === 0) {
+                                reject(new Error(`File "${file.name}" tidak memiliki data valid.`));
+                            } else {
+                                resolve({ name: file.name, rows: parsed });
+                            }
+                        } catch (err) {
+                            reject(new Error(`File "${file.name}": ${err.message}`));
+                        }
+                    };
+                    reader.onerror = () => reject(new Error(`Gagal membaca file "${file.name}".`));
+                    if (ext === 'csv') {
+                        reader.readAsText(file);
+                    } else {
+                        reader.readAsArrayBuffer(file);
+                    }
+                });
+            };
+
+            const handleFiles = async (fileList) => {
+                if (!fileList || fileList.length === 0) return;
+                setLoading(true);
+                setErrorMsg('');
+                const allParsed = [];
+                const fileNames = [];
+                const errors = [];
+                for (let i = 0; i < fileList.length; i++) {
+                    try {
+                        const result = await parseSingleFile(fileList[i]);
+                        allParsed.push(...result.rows);
+                        fileNames.push(`${result.name} (${result.rows.length} data)`);
+                    } catch (err) {
+                        errors.push(err.message);
+                    }
+                }
+                setLoading(false);
+                if (allParsed.length === 0) {
+                    setErrorMsg(errors.length > 0 ? errors.join(' | ') : "Tidak ada data valid dari file yang dipilih.");
+                    return;
+                }
+                const sourceLabel = fileList.length > 1
+                    ? `${fileList.length} File (${allParsed.length} total data)`
+                    : fileNames[0];
+                onUploadSuccess(allParsed, sourceLabel);
+                if (errors.length > 0) {
+                    setErrorMsg(`Sebagian file gagal: ${errors.join(' | ')}`);
+                }
+            };
+
+            const handleGoogleSync = async () => {
+                if (!googleUrl.trim()) {
+                    setErrorMsg("Silakan masukkan URL Google Sheets CSV terlebih dahulu.");
+                    return;
+                }
+                setLoading(true);
+                setErrorMsg('');
+
+                try {
+                    let fetchUrl = googleUrl.trim();
+                    if (fetchUrl.includes('docs.google.com/spreadsheets/d/')) {
+                        const match = fetchUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                        if (match && match[1] && !fetchUrl.includes('output=csv') && !fetchUrl.includes('tqx=out:csv')) {
+                            fetchUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/gviz/tq?tqx=out:csv`;
+                        }
+                    }
+
+                    const response = await fetch(fetchUrl);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    const csvText = await response.text();
+                    const parsed = await parseSurveyCSV(csvText);
+                    
+                    if (!parsed || parsed.length === 0) throw new Error("Data Google Sheets kosong.");
+                    onUploadSuccess(parsed, "Google Sheets (Live Link)");
+                } catch (err) {
+                    setErrorMsg(`Gagal sinkronisasi Google Sheets: ${err.message}. Pastikan spreadsheet di-Publish to Web (CSV).`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto py-12 px-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+                        <div className="bg-gradient-to-r from-bri-dark via-bri-blue to-[#004080] p-8 text-white text-center relative">
+                            <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-4 p-2 text-bri-blue">
+                                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            </div>
+                            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Upload Data Survei Anda</h2>
+                            <p className="text-blue-100 text-sm mt-2 max-w-xl mx-auto">
+                                Dashboard ini 100% menggunakan data survei yang Anda unggah sendiri (hasil export Typeform / Google Forms). Tidak ada data dummy.
+                            </p>
+                        </div>
+
+                        <div className="p-8 space-y-8">
+                            {errorMsg && (
+                                <div className="p-4 bg-rose-50 text-rose-800 border border-rose-200 rounded-2xl text-sm font-medium flex items-center gap-3">
+                                    <span>⚠️</span> {errorMsg}
+                                </div>
+                            )}
+
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                onDragLeave={() => setIsDragging(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(false);
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        handleFiles(e.dataTransfer.files);
+                                    }
+                                }}
+                                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                                className={`border-2 border-dashed rounded-3xl p-10 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center ${
+                                    isDragging ? 'border-bri-blue bg-blue-50/70 scale-[1.01]' : 'border-slate-300 hover:border-bri-blue bg-slate-50/70 hover:bg-blue-50/30'
+                                }`}
+                            >
+                                <div className="w-16 h-16 bg-white shadow-sm border border-slate-200 rounded-2xl flex items-center justify-center text-bri-blue mb-4">
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800">
+                                    {loading ? 'Sedang Memproses File...' : 'Tarik & Letakkan File CSV / Excel ke Sini'}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1 max-w-md">
+                                    Bisa pilih <strong>beberapa file sekaligus</strong> (per kategori). Mendukung export dari <strong>Typeform (.csv)</strong> atau <strong>Excel (.xlsx)</strong>
+                                </p>
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    className="mt-5 px-6 py-2.5 bg-bri-blue hover:bg-bri-dark text-white rounded-xl font-bold text-sm shadow-md transition-all disabled:opacity-50"
+                                >
+                                    Pilih File dari Komputer
+                                </button>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={(e) => e.target.files && handleFiles(e.target.files)}
+                                    accept=".csv, .xlsx, .xls"
+                                    multiple
+                                    className="hidden"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm mb-1">
+                                            <span>📊</span> Hubungkan Google Sheet (Live Link)
+                                        </div>
+                                        <p className="text-xs text-slate-500 mb-3">
+                                            Masukkan link Google Sheets yang telah di <em>Publish to Web (CSV)</em>.
+                                        </p>
+                                        <input
+                                            type="url"
+                                            value={googleUrl}
+                                            onChange={e => setGoogleUrl(e.target.value)}
+                                            placeholder="https://docs.google.com/spreadsheets/.../pub?output=csv"
+                                            className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 mb-3"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleGoogleSync}
+                                        disabled={loading}
+                                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors disabled:opacity-50"
+                                    >
+                                        Sinkronkan Google Sheets
+                                    </button>
+                                </div>
+
+                                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 text-bri-blue font-bold text-sm mb-1">
+                                            <span>📂</span> Muat File dari Folder Database
+                                        </div>
+                                        <p className="text-xs text-slate-500 mb-4">
+                                            Terdapat file respon CSV di folder <code>Database/responses-t2RvUWep-...csv</code>. Anda dapat langsung menggunakannya.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={onLoadDatabaseCSV}
+                                        disabled={loading}
+                                        className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors disabled:opacity-50"
+                                    >
+                                        Gunakan File CSV Database
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+        const APP_DATA_VERSION = 'v1.4.0';
+
+        const App = () => {
+            const [surveyData, setSurveyData] = useState(() => {
+                try {
+                    const storedVersion = localStorage.getItem('bri_survey_data_version');
+                    if (storedVersion !== APP_DATA_VERSION) {
+                        localStorage.removeItem('bri_user_uploaded_survey_data');
+                        localStorage.setItem('bri_survey_data_version', APP_DATA_VERSION);
+                        return [];
+                    }
+                    const saved = localStorage.getItem('bri_user_uploaded_survey_data');
+                    if (saved) {
+                        return JSON.parse(saved);
+                    }
+                } catch (e) {
+                    try { localStorage.removeItem('bri_user_uploaded_survey_data'); } catch (_) {}
+                }
+                return [];
+            });
+
+            const [config, setConfig] = useState(() => {
+                const saved = localStorage.getItem('bri_user_survey_config');
+                if (saved) {
+                    try { return JSON.parse(saved); } catch (e) {}
+                }
+                return {
+                    campusName: 'Regional Campus',
+                    passGrade: 80,
+                    formUrl: 'https://form.typeform.com/to/t2RvUWep',
+                    dataSourceName: 'Belum ada data',
+                    lastSync: '-'
+                };
+            });
+
+            const [filters, setFilters] = useState({
+                campus: 'All',
+                program: 'All',
+                batch: 'All',
+                dateRange: 'All'
+            });
+
+            const [activeTab, setActiveTab] = useState('overview');
+            const [feedbackCategoryFilter, setFeedbackCategoryFilter] = useState('All');
+            const [feedbackSearch, setFeedbackSearch] = useState('');
+            const fileInputReplaceRef = useRef(null);
+
+            useEffect(() => {
+                try {
+                    localStorage.setItem('bri_user_uploaded_survey_data', JSON.stringify(surveyData));
+                } catch (e) {
+                    console.warn('localStorage full - data kept in memory only for this session.');
+                }
+            }, [surveyData]);
+
+            useEffect(() => {
+                try {
+                    localStorage.setItem('bri_user_survey_config', JSON.stringify(config));
+                } catch (e) {
+                    console.warn('localStorage full for config.');
+                }
+            }, [config]);
+
+            const analytics = useSurveyAnalytics(surveyData, filters, config.passGrade);
+
+            const distinctCampuses = useMemo(() => ['All', ...new Set(surveyData.map(d => d.campus).filter(Boolean))], [surveyData]);
+            const distinctPrograms = useMemo(() => ['All', ...new Set(surveyData.map(d => d.program).filter(Boolean))], [surveyData]);
+            const distinctBatches = useMemo(() => ['All', ...new Set(surveyData.map(d => d.batch).filter(Boolean))], [surveyData]);
+
+            const handleUploadSuccess = (parsedData, sourceName) => {
+                setSurveyData(parsedData);
+                setConfig(prev => ({
+                    ...prev,
+                    dataSourceName: sourceName,
+                    lastSync: new Date().toLocaleTimeString('id-ID')
+                }));
+            };
+
+            const handleLoadDatabaseCSV = async () => {
+                try {
+                    const response = await fetch('Database/responses-t2RvUWep-01M0RXRM3W3YAW20QGXEAYNMPB-9BE58WKZLMG87J35GVMI3WM8.csv');
+                    if (!response.ok) throw new Error("Gagal mengambil file dari folder Database.");
+                    const csvText = await response.text();
+                    const parsed = await parseSurveyCSV(csvText);
+                    handleUploadSuccess(parsed, 'Database/responses-t2RvUWep.csv');
+                } catch (err) {
+                    alert(`Error: ${err.message}`);
+                }
+            };
+
+            const handleClearData = () => {
+                if (window.confirm("Apakah Anda yakin ingin menghapus data survei yang tersimpan dan mengunggah file baru?")) {
+                    setSurveyData([]);
+                    setConfig(prev => ({
+                        ...prev,
+                        dataSourceName: 'Belum ada data',
+                        lastSync: '-'
+                    }));
+                    localStorage.removeItem('bri_user_uploaded_survey_data');
+                }
+            };
+
+            const handleExportExcel = () => {
+                if (!analytics || !analytics.allItemsList) return;
+                const exportRows = analytics.allItemsList.map(item => ({
+                    'Pilar': item.pillar,
+                    'Sub-Kategori': item.subcategory,
+                    'Pertanyaan': item.fullQuestion,
+                    'Skor (%)': item.score.toFixed(2),
+                    'Skor (1-10)': (item.score / 10).toFixed(2),
+                    'Status': item.score >= config.passGrade ? 'PASS' : 'NEED IMPROVEMENT'
+                }));
+                const ws = XLSX.utils.json_to_sheet(exportRows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Rekap Skor Survei");
+                XLSX.writeFile(wb, `Rekap_Survei_Regional_Campus_${new Date().toISOString().split('T')[0]}.xlsx`);
+            };
+
+            const filteredFeedbacks = useMemo(() => {
+                if (!analytics || !analytics.feedbacks) return [];
+                return analytics.feedbacks.filter(fb => {
+                    if (feedbackCategoryFilter !== 'All' && fb.category !== feedbackCategoryFilter) return false;
+                    if (feedbackSearch.trim()) {
+                        const q = feedbackSearch.toLowerCase();
+                        return fb.text.toLowerCase().includes(q) || fb.subTitle.toLowerCase().includes(q) || fb.program.toLowerCase().includes(q);
+                    }
+                    return true;
+                });
+            }, [analytics, feedbackCategoryFilter, feedbackSearch]);
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    <header className="bg-gradient-to-r from-bri-dark via-bri-blue to-[#004080] text-white shadow-lg sticky top-0 z-40 no-print">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-20">
+                                <div className="flex items-center space-x-4">
+                                    <div className="w-12 h-12 bg-white rounded-xl shadow-md flex items-center justify-center p-1.5 flex-shrink-0">
+                                        <div className="w-full h-full bg-gradient-to-br from-bri-blue to-bri-dark rounded-lg flex flex-col items-center justify-center font-extrabold text-white text-xs leading-none">
+                                            <span className="text-[10px] tracking-wider text-bri-orange">BRI</span>
+                                            <span className="text-[9px] font-semibold text-blue-100">CAMPUS</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h1 className="font-extrabold text-lg sm:text-xl tracking-tight text-white">
+                                                Dashboard Survei Regional Campus
+                                            </h1>
+                                            <span className="hidden sm:inline-block bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                                Real Data Mode
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-blue-200 mt-0.5">
+                                            <span className="flex items-center gap-1.5 font-medium">
+                                                <span className={`w-2 h-2 rounded-full ${surveyData.length > 0 ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                                                {surveyData.length > 0 ? `Sumber: ${config.dataSourceName}` : 'Menunggu Upload Data'}
+                                            </span>
+                                            {surveyData.length > 0 && (
+                                                <>
+                                                    <span className="text-blue-400">•</span>
+                                                    <span><strong>{surveyData.length} Responden Terdata</strong></span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2.5">
+                                    {surveyData.length > 0 && (
+                                        <>
+                                            <button
+                                                onClick={() => fileInputReplaceRef.current && fileInputReplaceRef.current.click()}
+                                                className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3.5 rounded-xl transition-all border border-white/15 flex items-center gap-1.5"
+                                                title="Ganti atau Upload File Baru (bisa beberapa sekaligus)"
+                                            >
+                                                <span>📁</span>
+                                                <span className="hidden md:inline">Ganti / Tambah File</span>
+                                            </button>
+                                            <input
+                                                type="file"
+                                                ref={fileInputReplaceRef}
+                                                multiple
+                                                onChange={async (e) => {
+                                                    if (!e.target.files || e.target.files.length === 0) return;
+                                                    const files = e.target.files;
+                                                    const allParsed = [];
+                                                    const names = [];
+                                                    const errs = [];
+                                                    for (let i = 0; i < files.length; i++) {
+                                                        try {
+                                                            const file = files[i];
+                                                            const ext = file.name.split('.').pop().toLowerCase();
+                                                            let parsed = [];
+                                                            if (ext === 'csv') {
+                                                                const txt = await file.text();
+                                                                parsed = await parseSurveyCSV(txt);
+                                                            } else {
+                                                                const buf = await file.arrayBuffer();
+                                                                const wb = XLSX.read(buf, { type: 'array' });
+                                                                for (const sn of wb.SheetNames) {
+                                                                    const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sn]);
+                                                                    const sp = await parseSurveyCSV(csv);
+                                                                    if (sp && sp.length > 0) allParsed.push(...sp);
+                                                                }
+                                                                parsed = allParsed.slice(-999999);
+                                                            }
+                                                            if (parsed && parsed.length > 0) {
+                                                                allParsed.push(...parsed);
+                                                                names.push(`${file.name} (${parsed.length})`);
+                                                            }
+                                                        } catch (err) { errs.push(file.name + ': ' + err.message); }
+                                                    }
+                                                    if (allParsed.length > 0) {
+                                                        const label = files.length > 1 ? `${files.length} File (${allParsed.length} data)` : names[0];
+                                                        handleUploadSuccess(allParsed, label);
+                                                    } else {
+                                                        alert(errs.length > 0 ? errs.join('\n') : 'Tidak ada data valid.');
+                                                    }
+                                                    e.target.value = '';
+                                                }}
+                                                accept=".csv, .xlsx, .xls"
+                                                className="hidden"
+                                            />
+
+                                            <button
+                                                onClick={handleExportExcel}
+                                                className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold py-2 px-3.5 rounded-xl transition-all border border-white/15 flex items-center gap-1.5"
+                                                title="Unduh Rekap Excel"
+                                            >
+                                                <span>📥</span>
+                                                <span className="hidden lg:inline">Export Excel</span>
+                                            </button>
+
+                                            <button
+                                                onClick={handleClearData}
+                                                className="bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 text-xs font-semibold py-2 px-3.5 rounded-xl transition-all border border-rose-400/30 flex items-center gap-1.5"
+                                                title="Hapus Data & Upload Ulang"
+                                            >
+                                                <span>🗑️</span>
+                                                <span className="hidden sm:inline">Reset Data</span>
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {surveyData.length === 0 ? (
+                        <UploadHero
+                            onUploadSuccess={handleUploadSuccess}
+                            onLoadDatabaseCSV={handleLoadDatabaseCSV}
+                        />
+                    ) : (
+                        <>
+                            <div className="bg-white border-b border-slate-200 sticky top-20 z-30 shadow-xs no-print">
+                                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div className="flex flex-wrap items-center gap-2.5">
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Filter:</span>
+                                            
+                                            {distinctCampuses.length > 2 && (
+                                                <select
+                                                    value={filters.campus}
+                                                    onChange={e => setFilters({...filters, campus: e.target.value})}
+                                                    className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-bri-blue transition-all"
+                                                >
+                                                    <option value="All">🏢 Semua Kampus</option>
+                                                    {distinctCampuses.filter(c => c !== 'All').map(c => (
+                                                        <option key={c} value={c}>{c}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+
+                                            {distinctPrograms.length > 2 && (
+                                                <select
+                                                    value={filters.program}
+                                                    onChange={e => setFilters({...filters, program: e.target.value})}
+                                                    className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-bri-blue transition-all max-w-[200px] truncate"
+                                                >
+                                                    <option value="All">📚 Semua Program</option>
+                                                    {distinctPrograms.filter(p => p !== 'All').map(p => (
+                                                        <option key={p} value={p}>{p}</option>
+                                                    ))}
+                                                </select>
+                                            )}
+
+                                            <select
+                                                value={filters.dateRange}
+                                                onChange={e => setFilters({...filters, dateRange: e.target.value})}
+                                                className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-bri-blue transition-all"
+                                            >
+                                                <option value="All">📅 Semua Tanggal</option>
+                                                <option value="Today">Hari Ini</option>
+                                                <option value="7Days">7 Hari Terakhir</option>
+                                                <option value="30Days">30 Hari Terakhir</option>
+                                                <option value="ThisMonth">Bulan Ini</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                                            <button
+                                                onClick={() => setActiveTab('overview')}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    activeTab === 'overview' ? 'bg-white text-bri-blue shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                Ringkasan
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('pillars')}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    activeTab === 'pillars' ? 'bg-white text-bri-blue shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                4 Pilar
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('ranking')}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    activeTab === 'ranking' ? 'bg-white text-bri-blue shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                Peringkat Item
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('feedback')}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                                                    activeTab === 'feedback' ? 'bg-white text-bri-blue shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span>Saran</span>
+                                                {analytics && (
+                                                    <span className="bg-bri-orange text-white px-1.5 py-0.2 rounded-full text-[10px]">
+                                                        {analytics.feedbacks.length}
+                                                    </span>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveTab('raw')}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    activeTab === 'raw' ? 'bg-white text-bri-blue shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                Data Raw ({surveyData.length})
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+                                {!analytics ? (
+                                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
+                                        <div className="text-4xl mb-3">🔍</div>
+                                        <h3 className="text-lg font-bold text-slate-800">Tidak ada data untuk filter ini</h3>
+                                        <p className="text-sm text-slate-500 mt-1">Silakan sesuaikan pilihan filter di atas.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {(activeTab === 'overview' || activeTab === 'pillars') && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                                                <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">INDEX KEPUASAN</span>
+                                                            <h3 className="text-base font-extrabold text-slate-800">Overall Experience</h3>
+                                                        </div>
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                            analytics.overallScore >= config.passGrade ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                            {analytics.overallScore >= config.passGrade ? 'PASS' : 'REVIEW'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between my-2">
+                                                        <div>
+                                                            <span className="text-4xl font-black text-slate-900 tracking-tight">
+                                                                {analytics.overallScore.toFixed(1)}<span className="text-lg font-bold text-slate-500">%</span>
+                                                            </span>
+                                                            <div className="text-xs text-slate-500 mt-1">Target: <strong>{config.passGrade}%</strong></div>
+                                                        </div>
+                                                        <CircleProgress
+                                                            value={analytics.overallScore}
+                                                            size={78}
+                                                            strokeWidth={8}
+                                                            color={analytics.overallScore >= config.passGrade ? '#00529C' : '#EF4444'}
+                                                            sublabel="INDEX"
+                                                        />
+                                                    </div>
+                                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2">
+                                                        <div className="bg-bri-blue h-full rounded-full" style={{ width: `${analytics.overallScore}%` }} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">LOYALITAS & REKOMENDASI</span>
+                                                            <h3 className="text-base font-extrabold text-slate-800">Net Promoter Score</h3>
+                                                        </div>
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                                                            NPS: {analytics.nps.score > 0 ? `+${analytics.nps.score}` : analytics.nps.score}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between my-2">
+                                                        <div>
+                                                            <span className="text-4xl font-black text-purple-700 tracking-tight">
+                                                                {analytics.nps.score > 0 ? `+${analytics.nps.score}` : analytics.nps.score}
+                                                            </span>
+                                                            <div className="text-[11px] text-slate-500 mt-1">
+                                                                Promoters: <strong className="text-emerald-600">{analytics.nps.promoters.toFixed(0)}%</strong>
+                                                            </div>
+                                                        </div>
+                                                        <CircleProgress
+                                                            value={analytics.nps.promoters}
+                                                            size={78}
+                                                            strokeWidth={8}
+                                                            color="#8B5CF6"
+                                                            sublabel="PROMOTER"
+                                                        />
+                                                    </div>
+                                                    <div className="w-full bg-slate-100 h-2.5 rounded-full flex overflow-hidden mt-2">
+                                                        <div style={{ width: `${analytics.nps.promoters}%` }} className="bg-emerald-500 h-full" title="Promoters (9-10)" />
+                                                        <div style={{ width: `${analytics.nps.passives}%` }} className="bg-amber-400 h-full" title="Passives (7-8)" />
+                                                        <div style={{ width: `${analytics.nps.detractors}%` }} className="bg-rose-500 h-full" title="Detractors (0-6)" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-gradient-to-br from-bri-dark to-bri-blue p-5 rounded-2xl shadow-xs text-white flex flex-col justify-between">
+                                                    <div>
+                                                        <span className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">DATA REAL TERCATAT</span>
+                                                        <h3 className="text-base font-extrabold text-white">Total Responden</h3>
+                                                    </div>
+                                                    <div className="my-2">
+                                                        <span className="text-4xl font-black text-white">{analytics.totalResponses}</span>
+                                                        <span className="text-xs text-blue-200 ml-2 font-medium">Peserta Masuk</span>
+                                                    </div>
+                                                    <div className="text-[11px] text-blue-200 pt-2 border-t border-white/10 flex justify-between">
+                                                        <span>Saran Masuk: <strong>{analytics.feedbacks.length}</strong></span>
+                                                        <span>Status: <strong>Aktif</strong></span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 flex flex-col justify-between">
+                                                    <div>
+                                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ACTION SUMMARY</span>
+                                                        <h3 className="text-base font-extrabold text-slate-800">Status Mutu Layanan</h3>
+                                                    </div>
+                                                    <div className="space-y-1.5 my-1">
+                                                        <div className="flex justify-between text-xs items-center p-2 rounded-lg bg-emerald-50 text-emerald-900 font-semibold">
+                                                            <span>🏆 Sesuai Target (&gt;={config.passGrade}%)</span>
+                                                            <span className="font-bold">{analytics.allItemsList.filter(i => i.isPass).length} Item</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-xs items-center p-2 rounded-lg bg-rose-50 text-rose-900 font-semibold">
+                                                            <span>⚠️ Perlu Perbaikan (&lt;{config.passGrade}%)</span>
+                                                            <span className="font-bold">{analytics.areasToImprove.length} Item</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500">
+                                                        {analytics.areasToImprove.length === 0 ? '✨ Semua aspek memenuhi standar.' : `Ada ${analytics.areasToImprove.length} aspek perlu evaluasi.`}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(activeTab === 'overview' || activeTab === 'pillars') && (
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <h2 className="text-lg font-extrabold text-slate-900">4 Pilar Pengalaman Peserta</h2>
+                                                        <p className="text-xs text-slate-500">Hasil kalkulasi real time dari data yang Anda unggah</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                                                    <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-bri-blue flex items-center justify-center font-bold text-lg">🏠</div>
+                                                                <div>
+                                                                    <h3 className="font-extrabold text-base text-slate-900">Living Experience</h3>
+                                                                    <p className="text-xs text-slate-500">Hotel, Asrama, Kebersihan & Laundry</p>
+                                                                </div>
+                                                            </div>
+                                                            <CircleProgress value={analytics.livingScore} size={64} strokeWidth={7} color="#00529C" />
+                                                        </div>
+                                                        <div className="mt-5 space-y-1">
+                                                            {SURVEY_SCHEMA.living.items.map(item => (
+                                                                <ScoreBar key={item.id} label={item.label} score={analytics.itemScores[item.id] || 0} passGrade={config.passGrade} color="#00529C" />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">🎓</div>
+                                                                <div>
+                                                                    <h3 className="font-extrabold text-base text-slate-900">Learning Experience</h3>
+                                                                    <p className="text-xs text-slate-500">Ruang Kelas, Materi, Metode & SME</p>
+                                                                </div>
+                                                            </div>
+                                                            <CircleProgress value={analytics.learningScore} size={64} strokeWidth={7} color="#10B981" />
+                                                        </div>
+                                                        <div className="mt-5 space-y-1">
+                                                            <ScoreBar label="Ruang Kelas (Kebersihan, LCD, Audio, Wi-Fi)" score={analytics.learningSub.ruang} passGrade={config.passGrade} color="#10B981" />
+                                                            <ScoreBar label="Materi Pendidikan (Update, Kebutuhan & Kasus BRI)" score={analytics.learningSub.materi} passGrade={config.passGrade} color="#10B981" />
+                                                            <ScoreBar label="Metode Pembelajaran (Interaktif, Diskusi & Waktu)" score={analytics.learningSub.metode} passGrade={config.passGrade} color="#10B981" />
+                                                            <ScoreBar label="Faculty Member / SME (Penguasaan, Penjelasan, Sikap)" score={analytics.learningSub.sme} passGrade={config.passGrade} color="#10B981" />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-orange-50 text-bri-orange flex items-center justify-center font-bold text-lg">☕</div>
+                                                                <div>
+                                                                    <h3 className="font-extrabold text-base text-slate-900">Hospitality Experience</h3>
+                                                                    <p className="text-xs text-slate-500">Entry Gate (3S), Catering & Facilities</p>
+                                                                </div>
+                                                            </div>
+                                                            <CircleProgress value={analytics.hospitalityScore} size={64} strokeWidth={7} color="#F37021" />
+                                                        </div>
+                                                        <div className="mt-5 space-y-1">
+                                                            <ScoreBar label="Entry Gate (Standar Layanan 3S, Check-in, Petunjuk)" score={analytics.hospitalitySub.gate} passGrade={config.passGrade} color="#F37021" />
+                                                            <ScoreBar label="Catering (Kebersihan, Rasa, Variasi, Coffee Break)" score={analytics.hospitalitySub.catering} passGrade={config.passGrade} color="#F37021" />
+                                                            <ScoreBar label="Campus Facilities (Kualitas & Kelengkapan)" score={analytics.hospitalitySub.facilities} passGrade={config.passGrade} color="#F37021" />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                        <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg">🌳</div>
+                                                                <div>
+                                                                    <h3 className="font-extrabold text-base text-slate-900">Environment Experience</h3>
+                                                                    <p className="text-xs text-slate-500">Lingkungan Kampus, Digital (Brismart/Wi-Fi) & NPS</p>
+                                                                </div>
+                                                            </div>
+                                                            <CircleProgress value={analytics.environmentScore} size={64} strokeWidth={7} color="#8B5CF6" />
+                                                        </div>
+                                                        <div className="mt-5 space-y-1">
+                                                            <ScoreBar label="Lingkungan Campus (Kebersihan, Taman, Signage)" score={analytics.environmentSub.lingkungan} passGrade={config.passGrade} color="#8B5CF6" />
+                                                            <ScoreBar label="Akses Digital (Info Pelatihan, Brismart, Wi-Fi)" score={analytics.environmentSub.digital} passGrade={config.passGrade} color="#8B5CF6" />
+                                                            <ScoreBar label="Net Promoter Score (Rekomendasi Rekan Kerja)" score={analytics.environmentSub.nps} passGrade={config.passGrade} color="#8B5CF6" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(activeTab === 'ranking' || activeTab === 'overview') && (
+                                            <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                <div className="flex flex-wrap items-center justify-between mb-5 gap-2">
+                                                    <div>
+                                                        <h3 className="font-extrabold text-base text-slate-900">Peringkat Kepuasan Seluruh Item Survei</h3>
+                                                        <p className="text-xs text-slate-500">Diurutkan dari skor tertinggi hingga terendah</p>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-2 custom-scrollbar">
+                                                    {analytics.sortedItems.map((item, idx) => (
+                                                        <div key={item.id} className="flex items-center gap-3 text-xs">
+                                                            <span className="w-6 text-right font-bold text-slate-400 text-[11px]">#{idx + 1}</span>
+                                                            <div className="flex-grow">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <span className="font-semibold text-slate-700 truncate max-w-lg" title={item.fullQuestion}>
+                                                                        {item.label} <span className="text-[10px] text-slate-400 font-normal">({item.subcategory})</span>
+                                                                    </span>
+                                                                    <span className={`font-bold ml-2 ${item.isPass ? 'text-slate-800' : 'text-red-600'}`}>
+                                                                        {item.score.toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="relative w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                                    <div
+                                                                        className="h-full rounded-full transition-all duration-500"
+                                                                        style={{
+                                                                            width: `${item.score}%`,
+                                                                            backgroundColor: item.isPass ? '#00529C' : '#EF4444'
+                                                                        }}
+                                                                    />
+                                                                    <div className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10" style={{ left: `${config.passGrade}%` }} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {activeTab === 'feedback' && (
+                                            <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                <div className="flex flex-wrap items-center justify-between mb-5 gap-3">
+                                                    <div>
+                                                        <h3 className="font-extrabold text-base text-slate-900">Saran & Masukan Real Peserta</h3>
+                                                        <p className="text-xs text-slate-500">Tercatat {filteredFeedbacks.length} saran dari responden yang Anda upload</p>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Cari saran..."
+                                                            value={feedbackSearch}
+                                                            onChange={e => setFeedbackSearch(e.target.value)}
+                                                            className="text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-bri-blue outline-none"
+                                                        />
+                                                        <select
+                                                            value={feedbackCategoryFilter}
+                                                            onChange={e => setFeedbackCategoryFilter(e.target.value)}
+                                                            className="text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 focus:ring-2 focus:ring-bri-blue outline-none"
+                                                        >
+                                                            <option value="All">Semua Kategori</option>
+                                                            <option value="Living">Living Experience</option>
+                                                            <option value="Learning">Learning Experience</option>
+                                                            <option value="Hospitality">Hospitality Experience</option>
+                                                            <option value="Environment">Environment Experience</option>
+                                                            <option value="NPS">NPS & Rekomendasi</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {filteredFeedbacks.length === 0 ? (
+                                                    <div className="p-8 text-center text-slate-400 text-sm">
+                                                        Tidak ada saran teks yang tercatat dalam data ini.
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[460px] overflow-y-auto pr-2 custom-scrollbar">
+                                                        {filteredFeedbacks.map((fb, i) => (
+                                                            <div key={i} className="bg-slate-50 hover:bg-slate-100 p-4 rounded-xl border border-slate-200 transition-colors flex flex-col justify-between">
+                                                                <div>
+                                                                    <div className="flex justify-between items-center mb-2">
+                                                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-100 text-bri-blue">
+                                                                            {fb.category} &bull; {fb.subTitle}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-slate-400">{fb.timestamp}</span>
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-700 italic font-medium leading-relaxed">
+                                                                        "{fb.text}"
+                                                                    </p>
+                                                                </div>
+                                                                <div className="mt-3 pt-2 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-400">
+                                                                    <span className="truncate max-w-[140px] font-semibold text-slate-600">{fb.program}</span>
+                                                                    <span>{fb.responseId}</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {activeTab === 'raw' && (
+                                            <div className="bg-white rounded-2xl p-6 shadow-xs border border-slate-200">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <div>
+                                                        <h3 className="font-extrabold text-base text-slate-900">Data Responden yang Tersimpan</h3>
+                                                        <p className="text-xs text-slate-500">Daftar seluruh baris respon yang telah Anda upload ke dashboard</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleExportExcel}
+                                                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors"
+                                                    >
+                                                        Download Excel (.xlsx)
+                                                    </button>
+                                                </div>
+
+                                                <div className="overflow-x-auto max-h-[460px] custom-scrollbar border border-slate-200 rounded-xl">
+                                                    <table className="w-full text-xs text-left text-slate-700">
+                                                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 uppercase text-[10px]">
+                                                            <tr>
+                                                                <th className="p-3 border-b">No</th>
+                                                                <th className="p-3 border-b">ID Respon</th>
+                                                                <th className="p-3 border-b">Tanggal</th>
+                                                                <th className="p-3 border-b">Living (%)</th>
+                                                                <th className="p-3 border-b">Ruang Kelas (%)</th>
+                                                                <th className="p-3 border-b">Materi (%)</th>
+                                                                <th className="p-3 border-b">SME (%)</th>
+                                                                <th className="p-3 border-b">Catering (%)</th>
+                                                                <th className="p-3 border-b">NPS</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-100">
+                                                            {surveyData.map((row, idx) => (
+                                                                <tr key={idx} className="hover:bg-slate-50">
+                                                                    <td className="p-3 text-slate-400 font-bold">{idx + 1}</td>
+                                                                    <td className="p-3 font-mono font-medium text-bri-blue">{row.responseId}</td>
+                                                                    <td className="p-3">{row.timestamp}</td>
+                                                                    <td className="p-3 font-bold">{row.liv_kamar !== null ? `${row.liv_kamar}%` : '-'}</td>
+                                                                    <td className="p-3 font-bold">{row.learn_rk_kebersihan !== null ? `${row.learn_rk_kebersihan}%` : '-'}</td>
+                                                                    <td className="p-3 font-bold">{row.learn_mat_update !== null ? `${row.learn_mat_update}%` : '-'}</td>
+                                                                    <td className="p-3 font-bold">{row.learn_sme_materi !== null ? `${row.learn_sme_materi}%` : '-'}</td>
+                                                                    <td className="p-3 font-bold">{row.hosp_cat_rasa !== null ? `${row.hosp_cat_rasa}%` : '-'}</td>
+                                                                    <td className="p-3 font-bold text-purple-700">{row.nps_raw_value !== undefined ? row.nps_raw_value : (row.env_nps_score ? row.env_nps_score / 10 : '-')}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </main>
+                        </>
+                    )}
+
+                    <footer className="bg-white border-t border-slate-200 py-5 text-center text-xs text-slate-500 no-print mt-auto">
+                        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+                            <span>&copy; 2026 <strong>PT. Bank Rakyat Indonesia (Persero) Tbk</strong> &bull; Regional Campus Surveyor</span>
+                            <span>Aplikasi Dashboard Hasil Survei Real-Time</span>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

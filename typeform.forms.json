@@ -1,0 +1,158 @@
+[
+    {
+        "formId":  "VOxn5pJG",
+        "campus":  "Main Campus",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - Main Campus"
+    },
+    {
+        "formId":  "EyFcJbPD",
+        "campus":  "RCU Makassar",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - RCU Makassar"
+    },
+    {
+        "formId":  "ZllXxx3j",
+        "campus":  "RCU Yogyakarta",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - RCU Yogyakarta"
+    },
+    {
+        "formId":  "iYzLlX6P",
+        "campus":  "RCU Surabaya",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - RCU Surabaya"
+    },
+    {
+        "formId":  "aWjXrf87",
+        "campus":  "RCU Bandung",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - RCU Bandung"
+    },
+    {
+        "formId":  "fCwgLZzX",
+        "campus":  "RCU Padang",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - RCU Padang"
+    },
+    {
+        "formId":  "DbiW4vJV",
+        "campus":  "RCU Jakarta",
+        "category":  "living",
+        "label":  "Penginapan/Hotel - RCU Jakarta"
+    },
+    {
+        "formId":  "zrW3QAZe",
+        "campus":  "Main Campus",
+        "category":  "hospitality",
+        "label":  "Catering - Main Campus"
+    },
+    {
+        "formId":  "JEkXCiOX",
+        "campus":  "RCU Makassar",
+        "category":  "hospitality",
+        "label":  "Catering - RCU Makassar"
+    },
+    {
+        "formId":  "K0WS3wq5",
+        "campus":  "RCU Yogyakarta",
+        "category":  "hospitality",
+        "label":  "Catering - RCU Yogyakarta"
+    },
+    {
+        "formId":  "q8OtXXrm",
+        "campus":  "RCU Surabaya",
+        "category":  "hospitality",
+        "label":  "Catering - RCU Surabaya"
+    },
+    {
+        "formId":  "jXY67NvB",
+        "campus":  "RCU Bandung",
+        "category":  "hospitality",
+        "label":  "Catering - RCU Bandung"
+    },
+    {
+        "formId":  "YQ1gMsAQ",
+        "campus":  "RCU Padang",
+        "category":  "hospitality",
+        "label":  "Catering - RCU Padang"
+    },
+    {
+        "formId":  "qrDg6dkl",
+        "campus":  "RCU Jakarta",
+        "category":  "hospitality",
+        "label":  "Catering - RCU Jakarta"
+    },
+    {
+        "formId":  "A3uSZMxn",
+        "campus":  "Main Campus",
+        "category":  "learning",
+        "label":  "Pemateri - Main Campus"
+    },
+    {
+        "formId":  "ofa6FZZZ",
+        "campus":  "RCU Surabaya",
+        "category":  "learning",
+        "label":  "Pemateri - RCU Surabaya"
+    },
+    {
+        "formId":  "CwI4kHgH",
+        "campus":  "RCU Yogyakarta",
+        "category":  "learning",
+        "label":  "Pemateri - RCU Yogyakarta"
+    },
+    {
+        "formId":  "szB22Tkh",
+        "campus":  "RCU Makassar",
+        "category":  "learning",
+        "label":  "Pemateri - RCU Makassar"
+    },
+    {
+        "formId":  "DvdNilLW",
+        "campus":  "RCU Bandung",
+        "category":  "learning",
+        "label":  "Pemateri - RCU Bandung"
+    },
+    {
+        "formId":  "Cn52axfe",
+        "campus":  "RCU Padang",
+        "category":  "learning",
+        "label":  "Pemateri - RCU Padang"
+    },
+    {
+        "formId":  "pkEbs3fE",
+        "campus":  "RCU Jakarta",
+        "category":  "learning",
+        "label":  "Pemateri - RCU Jakarta"
+    },
+    {
+        "formId":  "S6yS8L0g",
+        "campus":  "Umum",
+        "category":  "learning",
+        "label":  "Kualitas Pemateri Pendidikan"
+    },
+    {
+        "formId":  "pcQ3zv3J",
+        "campus":  "Umum",
+        "category":  "learning",
+        "label":  "Kualitas Pemateri (2026)"
+    },
+    {
+        "formId":  "SEa9jM3F",
+        "campus":  "Umum",
+        "category":  "environment",
+        "label":  "Sarana Prasarana Pendidikan"
+    },
+    {
+        "formId":  "iC34AC9D",
+        "campus":  "Umum",
+        "category":  "environment",
+        "label":  "Sarana Prasarana (2026)"
+    },
+    {
+        "formId":  "KEdDrEtc",
+        "campus":  "Umum",
+        "category":  "environment",
+        "label":  "Sarana Prasarana Pendidikan"
+    }
+]
